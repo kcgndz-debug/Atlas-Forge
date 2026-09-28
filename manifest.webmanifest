@@ -1,0 +1,17 @@
+{
+  "name":"Atlas Forge — Powered by Athena",
+  "short_name":"Atlas Forge",
+  "description":"Private construction plan measurement and takeoff workspace.",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "display_override":["window-controls-overlay","standalone","minimal-ui"],
+  "background_color":"#080b10",
+  "theme_color":"#0b1018",
+  "orientation":"any",
+  "icons":[
+    {"src":"./icon-192.webp","sizes":"192x192","type":"image/webp","purpose":"any maskable"},
+    {"src":"./icon-512.webp","sizes":"256x256","type":"image/webp","purpose":"any maskable"}
+  ],
+  "categories":["business","productivity","utilities"]
+}
