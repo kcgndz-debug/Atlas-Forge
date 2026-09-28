@@ -93,7 +93,7 @@ $('#splitBtn').onclick=async()=>{if(!state.pdf||state.pages<2)return toast('Spli
 $('#splitPage').onchange=async e=>{state.splitPage=Number(e.target.value);await updateSplit()};
 $('#undoBtn').onclick=()=>{if(state.draft.length)state.draft.pop();else if(state.items.length)state.items.pop();else if(state.strokes.length)state.strokes.pop();refreshUI()};$('#clearBtn').onclick=()=>{state.items=state.items.filter(i=>i.page!==state.page);state.strokes=state.strokes.filter(i=>i.page!==state.page);state.draft=[];state.selected=null;refreshUI();toast('Page markups cleared')};
 function csvCell(v){const s=String(v??'');return/[",\n]/.test(s)?'"'+s.replaceAll('"','""')+'"':s}
-$('#exportBtn').onclick=()=>{if(!state.items.length)return toast('Nothing to export yet');const rows=[['Item','Group','Type','Page','Segments','Value','Unit','Railing Layout'],...state.items.map((i,n)=>{const linear=['length','multilength','joint'].includes(i.type),value=linear?linearValue(i).toFixed(3):i.type==='area'?(state.scale?polyArea(i.points)*state.scale*state.scale:0).toFixed(3):i.type==='angle'?angleValue(i.points).toFixed(2):1,unit=linear?'LF':i.type==='area'?'SF':i.type==='angle'?'DEG':'EA';return[n+1,i.group||'General',i.type,i.page,i.type==='multilength'?i.segments.length:'',value,unit,i.railLayout?.notation||'']})];const blob=new Blob([rows.map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.file.replace(/\.[^.]+$/,'')||'plan')+'-takeoff.csv';a.click();URL.revokeObjectURL(a.href);toast('Takeoff exported')};
+$('#exportBtn').onclick=()=>{if(!state.items.length)return toast('Nothing to export yet');const rows=[['Item','Group','Type','Page','Segments','Value','Unit','Railing Layout','Stock Sticks','Rail Members'],...state.items.map((i,n)=>{const linear=['length','multilength','joint'].includes(i.type),value=linear?linearValue(i).toFixed(3):i.type==='area'?(state.scale?polyArea(i.points)*state.scale*state.scale:0).toFixed(3):i.type==='angle'?angleValue(i.points).toFixed(2):1,unit=linear?'LF':i.type==='area'?'SF':i.type==='angle'?'DEG':'EA';return[n+1,i.group||'General',i.type,i.page,i.type==='multilength'?i.segments.length:'',value,unit,i.railLayout?.notation||'',i.railCutPlan?.summary?.stockSticks||'',i.railCutPlan?.summary?.railMembers||'']})];const blob=new Blob([rows.map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.file.replace(/\.[^.]+$/,'')||'plan')+'-takeoff.csv';a.click();URL.revokeObjectURL(a.href);toast('Takeoff exported')};
 const railingAutomation=window.AtlasRailingAutomation;
 const railingModule=tradeRegistry?.get?.('railing');
 const layoutProfiles=railingModule?.layoutProfiles||{};
@@ -110,6 +110,7 @@ function syncLayoutProfileFromGroup(force=false){
   const sel=$('#railLayoutProfile');if(!sel)return;
   const mapped=groupLayoutProfileMap[state.group];
   if(mapped&&(force||!sel.value))sel.value=mapped;
+  if(mapped&&railProfiles?.some?.(p=>p.id===mapped)&&$('#railProfile'))$('#railProfile').value=mapped;
 }
 function segmentIntersection(a,b,c,d){
   const r={x:b.x-a.x,y:b.y-a.y},s={x:d.x-c.x,y:d.y-c.y};
@@ -164,14 +165,77 @@ window.atlasForgeSolveRailLayout=input=>railingAutomation?.solve?.(input);
 const railAutoSelfTest=railingAutomation?.selfTest?.();
 if(railAutoSelfTest&&!railAutoSelfTest.pass)console.error('Atlas Forge railing automation self-test failed',railAutoSelfTest);
 
-const defaultRailProfiles=tradeRegistry?.getMaterialProfiles?.('railing')||[{id:'870',name:'870 Aluminum Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'870'},{id:'880',name:'880 Steel Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'880'},{id:'822',name:'822 Bullet Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'822'}];
+const defaultRailProfiles=tradeRegistry?.getMaterialProfiles?.('railing')||[{id:'870',name:'870 Aluminum Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,kerf:0,reusableDropMin:0,layoutProfile:'870'},{id:'880',name:'880 Steel Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,kerf:0,reusableDropMin:0,layoutProfile:'880'},{id:'822',name:'822 Bullet Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,kerf:0,reusableDropMin:0,layoutProfile:'822'}];
 let railProfiles=[];try{railProfiles=JSON.parse(localStorage.getItem('atlasRailProfiles'))||[]}catch{railProfiles=[]}
 for(const standard of defaultRailProfiles){const n=railProfiles.findIndex(p=>p.id===standard.id);if(n>=0)railProfiles[n]={...standard,...railProfiles[n],layoutProfile:railProfiles[n].layoutProfile||standard.layoutProfile};else railProfiles.push({...standard})}
 function saveProfiles(){localStorage.setItem('atlasRailProfiles',JSON.stringify(railProfiles));renderProfileSelect()}
 function renderProfileSelect(){const sel=$('#railProfile'),current=sel.value;sel.innerHTML=railProfiles.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');if(railProfiles.some(p=>p.id===current))sel.value=current}
-function editProfile(profile){$('#rpName').value=profile?.name||'';$('#rpRails').value=profile?.rails||2;$('#rpStock').value=profile?.stock||240;$('#rpPost').value=profile?.post||72;$('#rpOverlap').value=profile?.overlap||6;$('#rpGap').value=profile?.gap??.5;$('#rpBendPost').value=profile?.bendPost||21;$('#rpRadius').value=profile?.radius||6;$('#railModal').dataset.id=profile?.id||'';$('#railModal').classList.add('show')}
+function editProfile(profile){$('#rpName').value=profile?.name||'';$('#rpRails').value=profile?.rails||2;$('#rpStock').value=profile?.stock||240;$('#rpPost').value=profile?.post||72;$('#rpOverlap').value=profile?.overlap||6;$('#rpGap').value=profile?.gap??.5;$('#rpBendPost').value=profile?.bendPost||21;$('#rpRadius').value=profile?.radius||6;$('#rpKerf').value=profile?.kerf??0;$('#rpReusableDrop').value=profile?.reusableDropMin??0;$('#railModal').dataset.id=profile?.id||'';$('#railModal').classList.add('show')}
 $('#editRailProfile').onclick=()=>editProfile(railProfiles.find(p=>p.id===$('#railProfile').value));$('#newRailProfile').onclick=()=>editProfile(null);$('#cancelRailProfile').onclick=()=>$('#railModal').classList.remove('show');
-$('#saveRailProfile').onclick=()=>{const p={id:$('#railModal').dataset.id||crypto.randomUUID(),name:$('#rpName').value.trim()||'Custom rail system',rails:Math.max(1,Number($('#rpRails').value)||1),stock:Math.max(1,Number($('#rpStock').value)||240),post:Math.max(1,Number($('#rpPost').value)||72),overlap:Math.max(0,Number($('#rpOverlap').value)||0),gap:Math.max(0,Number($('#rpGap').value)||0),bendPost:Math.max(0,Number($('#rpBendPost').value)||21),radius:Math.max(0,Number($('#rpRadius').value)||0)};const n=railProfiles.findIndex(x=>x.id===p.id);n>=0?railProfiles[n]=p:railProfiles.push(p);saveProfiles();$('#railProfile').value=p.id;$('#railModal').classList.remove('show');toast('Rail profile saved')};
+$('#saveRailProfile').onclick=()=>{const p={id:$('#railModal').dataset.id||crypto.randomUUID(),name:$('#rpName').value.trim()||'Custom rail system',rails:Math.max(1,Number($('#rpRails').value)||1),stock:Math.max(1,Number($('#rpStock').value)||240),post:Math.max(1,Number($('#rpPost').value)||72),overlap:Math.max(0,Number($('#rpOverlap').value)||0),gap:Math.max(0,Number($('#rpGap').value)||0),bendPost:Math.max(0,Number($('#rpBendPost').value)||21),radius:Math.max(0,Number($('#rpRadius').value)||0),kerf:Math.max(0,Number($('#rpKerf').value)||0),reusableDropMin:Math.max(0,Number($('#rpReusableDrop').value)||0)};const n=railProfiles.findIndex(x=>x.id===p.id);n>=0?railProfiles[n]=p:railProfiles.push(p);saveProfiles();$('#railProfile').value=p.id;$('#railModal').classList.remove('show');toast('Rail profile saved')};
+
+const railingMaterials=window.AtlasRailingMaterials;
+function railProfileForLayout(item){
+  const selected=railProfiles.find(p=>p.id===$('#railProfile').value);
+  if(selected)return selected;
+  return railProfiles.find(p=>p.id===item?.railLayout?.profileId)||railProfiles[0];
+}
+function renderRailCutPlan(plan){
+  const box=$('#railCutResult');if(!box)return;
+  const fmt=window.AtlasRailingAutomation.formatInches;
+  const sticks=plan.sticks.map(stick=>`<div style="border-top:1px solid #2a3442;padding:6px 0"><div style="display:flex;justify-content:space-between;gap:8px"><strong>Stock #${stick.id} · ${fmt(stick.stockLength)}″</strong><span>drop ${fmt(stick.remaining)}″</span></div><div style="color:var(--muted)">${stick.cuts.map(c=>`${esc(c.id)} = ${fmt(c.length)}″`).join(' · ')}</div></div>`).join('');
+  const oversize=plan.oversize.map(c=>`<div class="warn">OVERSIZE · ${esc(c.id)} = ${fmt(c.length)}″ exceeds ${fmt(plan.profile.stock)}″ stock by ${fmt(c.overBy)}″</div>`).join('');
+  box.innerHTML=`<strong>${esc(plan.profile.name)} cut plan</strong><div style="margin:5px 0">Required rail members: <strong>${plan.summary.railMembers}</strong> · Stock sticks: <strong>${plan.summary.stockSticks}</strong></div><div>Splice sleeves: <strong>${plan.accessories.spliceSleeves}</strong> · Expansion sleeves: <strong>${plan.accessories.expansionSleeves}</strong> · Posts: <strong>${plan.accessories.posts}</strong></div><div style="color:var(--muted);margin:4px 0 7px">Stock ${fmt(plan.profile.stock)}″ · total remaining drop ${fmt(plan.summary.remainingLength)}″ · ${plan.summary.wastePercent}% remaining</div>${sticks}${oversize}${plan.warnings.length?`<div class="warn" style="margin-top:7px">${plan.warnings.map(esc).join('<br>')}</div>`:''}`;
+  $('#exportRailCuts').hidden=false;
+}
+$('#optimizeRailCuts').onclick=()=>{
+  const it=state.items.find(i=>i.id===state.selected);
+  if(!it?.railLayout)return toast('Auto-layout the selected rail run first');
+  const profile=railProfileForLayout(it);
+  try{
+    const plan=railingMaterials.optimize({layout:it.railLayout,profile});
+    it.railMaterialProfileId=profile.id;
+    it.railCutPlan=plan;
+    renderRailCutPlan(plan);
+    refreshUI();
+    toast(plan.oversize.length?'Cut list built — stock conflict flagged':'Cut list optimized');
+  }catch(error){
+    $('#railCutResult').innerHTML=`<span class="warn">${esc(error.message||'Could not build cut list')}</span>`;
+    $('#exportRailCuts').hidden=true;
+  }
+};
+function csvText(rows){return rows.map(row=>row.map(csvCell).join(',')).join('\n')}
+function downloadText(filename,textContent,type='text/csv'){const blob=new Blob([textContent],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href)}
+$('#exportRailCuts').onclick=()=>{
+  const it=state.items.find(i=>i.id===state.selected);
+  if(!it?.railCutPlan)return toast('Build the cut list first');
+  const rows=railingMaterials.toCsv(it.railCutPlan);
+  rows.push([]);
+  rows.push(['Posts',it.railCutPlan.accessories.posts]);
+  rows.push(['Splice Sleeves',it.railCutPlan.accessories.spliceSleeves]);
+  rows.push(['Expansion Sleeves',it.railCutPlan.accessories.expansionSleeves]);
+  downloadText((state.file.replace(/\.[^.]+$/,'')||'railing')+'-cut-list.csv',csvText(rows));
+  toast('Cut list exported');
+};
+$('#optimizeAllRailCuts').onclick=()=>{
+  const entries=state.items.filter(i=>i.railLayout).map((it,n)=>{
+    const profile=railProfiles.find(p=>p.id===it.railMaterialProfileId)||railProfiles.find(p=>p.id===it.railLayout.profileId);
+    return{name:`Page ${it.page} Run ${n+1}`,layout:it.railLayout,profile};
+  });
+  if(!entries.length)return toast('No auto-laid-out rail runs found');
+  const result=railingMaterials.optimizeMany(entries);
+  const groups=result.groups;
+  if(!groups.length)return toast('Assign fabrication profiles to the laid-out runs first');
+  const fmt=window.AtlasRailingAutomation.formatInches;
+  $('#railCutResult').innerHTML=groups.map(g=>`<div style="margin-bottom:10px"><strong>${esc(g.profile.name)} · project nesting</strong><div>${g.runs.length} runs · ${g.summary.railMembers} rail members · ${g.summary.stockSticks} stock sticks</div><div style="color:var(--muted)">Remaining drop ${fmt(g.summary.remainingLength)}″ · ${g.summary.wastePercent}%</div>${g.sticks.map(s=>`<div style="border-top:1px solid #2a3442;padding:4px 0">Stock #${s.id}: ${s.cuts.map(c=>`${esc(c.id)} ${fmt(c.length)}″`).join(' · ')} · drop ${fmt(s.remaining)}″</div>`).join('')}${g.oversize.map(c=>`<div class="warn">OVERSIZE · ${esc(c.id)} = ${fmt(c.length)}″</div>`).join('')}</div>`).join('')+`${result.skipped.length?`<div class="warn">Skipped: ${result.skipped.map(esc).join(', ')}</div>`:''}`;
+  $('#exportRailCuts').hidden=true;
+  toast('All laid-out runs optimized together');
+};
+window.atlasForgeOptimizeRailCuts=input=>railingMaterials?.optimize?.(input);
+window.atlasForgeOptimizeAllRailCuts=input=>railingMaterials?.optimizeMany?.(input);
+const railMaterialSelfTest=railingMaterials?.selfTest?.();
+if(railMaterialSelfTest&&!railMaterialSelfTest.pass)console.error('Atlas Forge railing material self-test failed',railMaterialSelfTest);
+
 function crosses(a,b,c,d){const cc=(p1,p2,p3)=>(p3.y-p1.y)*(p2.x-p1.x)>(p2.y-p1.y)*(p3.x-p1.x);return cc(a,c,d)!==cc(b,c,d)&&cc(a,b,c)!==cc(a,b,d)}
 function layoutRuleSummary(profile){const layout=tradeRegistry?.getLayoutProfile?.('railing',profile.layoutProfile||profile.id);if(!layout)return'';const sections=Object.entries(layout.sections||{}).map(([key,s])=>s?.pattern?`${key}: ${s.pattern}${Number.isFinite(s.overall)?` = ${s.overall}″ OAL`:''}`:'').filter(Boolean);const max=layout.maxBay? `Max bay ${layout.maxBay}″`:'';const ground=layout.minGroundPostsPerSection? `min ${layout.minGroundPostsPerSection} ground posts/section`:'';return `<br><small><strong>Athena layout rules:</strong> ${[max,ground].filter(Boolean).join(' · ')}${sections.length?`<br>${sections.map(esc).join('<br>')}`:''}</small>`}
 $('#calculateRail').onclick=()=>{const it=state.items.find(i=>i.id===state.selected);if(!it||!['length','multilength'].includes(it.type))return toast('Select a length or multi-segment rail run first');if(!state.scale)return toast('Calibrate the plan before calculating railing');const p=railProfiles.find(x=>x.id===$('#railProfile').value)||railProfiles[0],runSegs=it.type==='multilength'?it.segments:itemSegments(it),jointSegs=state.items.filter(x=>x.type==='joint'&&x.page===it.page).flatMap(itemSegments);let crossings=0;for(const a of runSegs)for(const b of jointSegs)if(crosses(a[0],a[1],b[0],b[1]))crossings++;const inches=linearValue(it)*12,corners=it.type==='length'?Math.max(0,it.points.length-2):0,piecesPerRail=Math.max(crossings+1,Math.ceil((inches+crossings*p.overlap)/p.stock)),railPieces=piecesPerRail*p.rails,posts=Math.ceil(inches/p.post)+1,sleeves=crossings*p.rails;$('#railResult').innerHTML=`<strong>${esc(p.name)}</strong><br>${(inches/12).toFixed(2)} LF run · ${railPieces} rail pieces · ${posts} posts<br>${sleeves} expansion sleeves · ${corners} corner bends${crossings?`<br><span class="warn">${crossings} expansion crossing${crossings===1?'':'s'}: solid pieces must break and sleeve.</span>`:''}<br><small>Max post spacing ${p.post}″ · bend-to-post ${p.bendPost}″ max · sleeve gap ${p.gap}″</small>${layoutRuleSummary(p)}`};

@@ -5,7 +5,7 @@
     railing:{
       id:'railing',
       name:'Railing & Fence',
-      version:'1.1.0',
+      version:'1.2.0',
       enabled:true,
       engine:'linear-fabrication-v1',
       groups:['General','862 Type 1 Picket','870 Aluminum Two-Rail','880 Steel Two-Rail','822 Bullet Rail','550-002 Type B Fence','550-003 Gate','Removal'],
@@ -93,9 +93,9 @@
         }
       },
       materialProfiles:[
-        {id:'870',name:'870 Aluminum Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'870'},
-        {id:'880',name:'880 Steel Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'880'},
-        {id:'822',name:'822 Bullet Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'822'}
+        {id:'870',name:'870 Aluminum Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,kerf:0,reusableDropMin:0,layoutProfile:'870'},
+        {id:'880',name:'880 Steel Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,kerf:0,reusableDropMin:0,layoutProfile:'880'},
+        {id:'822',name:'822 Bullet Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,kerf:0,reusableDropMin:0,layoutProfile:'822'}
       ]
     },
     general:{
@@ -149,7 +149,8 @@
       role:m.athena?.role||'',
       rules:m.athena?.rules||[],
       notation:m.notation||{},
-      layoutProfiles:m.layoutProfiles||{}
+      layoutProfiles:m.layoutProfiles||{},
+      materialProfiles:m.materialProfiles||[]
     });
   }
 
