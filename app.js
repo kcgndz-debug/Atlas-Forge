@@ -36,9 +36,25 @@ function pointSegDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy;if(!l
 function itemSegments(it){if(it.type==='count')return[];if(it.type==='multilength')return it.segments;const ps=it.points,segs=[];for(let i=1;i<ps.length;i++)segs.push([ps[i-1],ps[i]]);if(it.type==='area'&&ps.length>2)segs.push([ps.at(-1),ps[0]]);return segs}
 function hitItem(p){const v=nearestVertex(p);if(v)return v.item;let best=null,d0=12/state.zoom;for(const it of pageItems()){if(it.type==='count'){const d=dist(p,it.points[0]);if(d<d0){best=it;d0=d}}for(const seg of itemSegments(it)){const d=pointSegDistance(p,...seg);if(d<d0){best=it;d0=d}}}return best}
 function getRefPoint(r){return r.segment==null?r.item.points[r.point]:r.item.segments[r.segment][r.point]}
-function setRefPoint(r,p){const dest=getRefPoint(r);dest.x=p.x;dest.y=p.y}
+function setRefPoint(r,p){const dest=getRefPoint(r);dest.x=p.x;dest.y=p.y;delete r.item.railLayout}
 function renderOverlay(){svg.innerHTML='';const add=(tag,attrs)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);svg.appendChild(n);return n};for(const it of pageItems())drawItem(it,add);for(const st of state.strokes.filter(s=>s.page===state.page))add('path',{d:pathD(st.points),fill:'none',stroke:colors.pen,'stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'});if(state.draft.length){const c=colors[state.tool]||colors.length;if(state.tool!=='count')add('path',{d:pathD(state.draft),fill:state.tool==='area'?c+'22':'none',stroke:c,'stroke-width':2,'stroke-dasharray':'7 5','vector-effect':'non-scaling-stroke'});state.draft.forEach(p=>add('circle',{cx:p.x,cy:p.y,r:5,fill:c,stroke:'#fff','stroke-width':1,'vector-effect':'non-scaling-stroke'}))}if(state.selected){for(const r of vertexRefs().filter(r=>r.item.id===state.selected)){const p=getRefPoint(r);add('circle',{cx:p.x,cy:p.y,r:7,fill:'#e2ac3e',stroke:'#16120a','stroke-width':2,'vector-effect':'non-scaling-stroke'})}}if(state.snapMarker){const p=state.snapMarker;add('circle',{cx:p.x,cy:p.y,r:10,fill:'none',stroke:'#e2ac3e','stroke-width':2,'vector-effect':'non-scaling-stroke'});add('path',{d:`M${p.x-14} ${p.y}H${p.x+14}M${p.x} ${p.y-14}V${p.y+14}`,stroke:'#e2ac3e','stroke-width':1,'vector-effect':'non-scaling-stroke'})}}
-function drawItem(it,add){const c=colors[it.type]||colors.length;if(it.type==='count'){add('circle',{cx:it.points[0].x,cy:it.points[0].y,r:10,fill:c,stroke:'#17120a','stroke-width':2,'vector-effect':'non-scaling-stroke'});const t=add('text',{x:it.points[0].x,y:it.points[0].y+4,'text-anchor':'middle',fill:'#17120a','font-size':11,'font-weight':800});t.textContent=it.seq}else if(it.type==='multilength'){it.segments.forEach((seg,n)=>{add('path',{d:pathD(seg),fill:'none',stroke:c,'stroke-width':state.selected===it.id?5:3,'vector-effect':'non-scaling-stroke'});const p=seg[1],t=add('text',{x:p.x+8,y:p.y-8,fill:c,'font-size':12,'font-weight':800,stroke:'#fff','stroke-width':3,'paint-order':'stroke'});t.textContent=(n+1)+': '+feet(dist(seg[0],seg[1])).toFixed(2)+' LF'})}else{add('path',{d:pathD(it.points,it.type==='area'),fill:it.type==='area'?c+'25':'none',stroke:c,'stroke-width':state.selected===it.id?5:3,'stroke-dasharray':it.type==='joint'?'10 7':'','vector-effect':'non-scaling-stroke','stroke-linejoin':'round'});const p=it.type==='angle'?it.points[1]:it.points[Math.floor(it.points.length/2)],t=add('text',{x:p.x+8,y:p.y-8,fill:c,'font-size':13,'font-weight':800,stroke:'#fff','stroke-width':3,'paint-order':'stroke'});t.textContent=formatValue(it)}}
+function drawItem(it,add){
+  const c=colors[it.type]||colors.length;
+  if(it.type==='count'){
+    add('circle',{cx:it.points[0].x,cy:it.points[0].y,r:10,fill:c,stroke:'#17120a','stroke-width':2,'vector-effect':'non-scaling-stroke'});
+    const t=add('text',{x:it.points[0].x,y:it.points[0].y+4,'text-anchor':'middle',fill:'#17120a','font-size':11,'font-weight':800});t.textContent=it.seq;
+  }else if(it.type==='multilength'){
+    it.segments.forEach((seg,n)=>{add('path',{d:pathD(seg),fill:'none',stroke:c,'stroke-width':state.selected===it.id?5:3,'vector-effect':'non-scaling-stroke'});const p=seg[1],t=add('text',{x:p.x+8,y:p.y-8,fill:c,'font-size':12,'font-weight':800,stroke:'#fff','stroke-width':3,'paint-order':'stroke'});t.textContent=(n+1)+': '+feet(dist(seg[0],seg[1])).toFixed(2)+' LF'});
+  }else{
+    add('path',{d:pathD(it.points,it.type==='area'),fill:it.type==='area'?c+'25':'none',stroke:c,'stroke-width':state.selected===it.id?5:3,'stroke-dasharray':it.type==='joint'?'10 7':'','vector-effect':'non-scaling-stroke','stroke-linejoin':'round'});
+    const p=it.type==='angle'?it.points[1]:it.points[Math.floor(it.points.length/2)],t=add('text',{x:p.x+8,y:p.y-8,fill:c,'font-size':13,'font-weight':800,stroke:'#fff','stroke-width':3,'paint-order':'stroke'});
+    t.textContent=formatValue(it);
+    if(it.railLayout?.notation){
+      const layout=add('text',{x:p.x+8,y:p.y+10,fill:'#8a5a00','font-size':12,'font-weight':800,stroke:'#fff','stroke-width':3,'paint-order':'stroke'});
+      layout.textContent=it.railLayout.notation;
+    }
+  }
+}
 function feet(px){return state.scale?px*state.scale:0}
 function polyLength(ps){return ps.slice(1).reduce((s,p,i)=>s+dist(ps[i],p),0)}
 function polyArea(ps){let a=0;for(let i=0,j=ps.length-1;i<ps.length;j=i++)a+=(ps[j].x+ps[i].x)*(ps[j].y-ps[i].y);return Math.abs(a/2)}
@@ -72,12 +88,82 @@ function applyTradePack(id,preserveGroup=false){const pack=tradePacks[id]||trade
 window.atlasForgeGetAthenaTradeContext=()=>tradeRegistry?.getAthenaContext?.(state.tradePack)||null;
 window.atlasForgeGetTradeModule=()=>tradeRegistry?.get?.(state.tradePack)||null;
 $('#tradePackSelect').onchange=e=>{applyTradePack(e.target.value);state.multiId=null;toast(tradePacks[state.tradePack].name+' pack active');refreshUI()};
-$('#takeoffGroup').onchange=e=>{state.group=e.target.value;state.multiId=null;toast('Takeoff group: '+state.group)};
+$('#takeoffGroup').onchange=e=>{state.group=e.target.value;state.multiId=null;syncLayoutProfileFromGroup(true);toast('Takeoff group: '+state.group)};
 $('#splitBtn').onclick=async()=>{if(!state.pdf||state.pages<2)return toast('Split view needs a multi-page PDF');state.split=!state.split;if(state.split&&state.splitPage===state.page)state.splitPage=state.page===state.pages?1:state.page+1;$('#splitPage').value=state.splitPage;await updateSplit();fitView()};
 $('#splitPage').onchange=async e=>{state.splitPage=Number(e.target.value);await updateSplit()};
 $('#undoBtn').onclick=()=>{if(state.draft.length)state.draft.pop();else if(state.items.length)state.items.pop();else if(state.strokes.length)state.strokes.pop();refreshUI()};$('#clearBtn').onclick=()=>{state.items=state.items.filter(i=>i.page!==state.page);state.strokes=state.strokes.filter(i=>i.page!==state.page);state.draft=[];state.selected=null;refreshUI();toast('Page markups cleared')};
 function csvCell(v){const s=String(v??'');return/[",\n]/.test(s)?'"'+s.replaceAll('"','""')+'"':s}
-$('#exportBtn').onclick=()=>{if(!state.items.length)return toast('Nothing to export yet');const rows=[['Item','Group','Type','Page','Segments','Value','Unit'],...state.items.map((i,n)=>{const linear=['length','multilength','joint'].includes(i.type),value=linear?linearValue(i).toFixed(3):i.type==='area'?(state.scale?polyArea(i.points)*state.scale*state.scale:0).toFixed(3):i.type==='angle'?angleValue(i.points).toFixed(2):1,unit=linear?'LF':i.type==='area'?'SF':i.type==='angle'?'DEG':'EA';return[n+1,i.group||'General',i.type,i.page,i.type==='multilength'?i.segments.length:'',value,unit]})];const blob=new Blob([rows.map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.file.replace(/\.[^.]+$/,'')||'plan')+'-takeoff.csv';a.click();URL.revokeObjectURL(a.href);toast('Takeoff exported')};
+$('#exportBtn').onclick=()=>{if(!state.items.length)return toast('Nothing to export yet');const rows=[['Item','Group','Type','Page','Segments','Value','Unit','Railing Layout'],...state.items.map((i,n)=>{const linear=['length','multilength','joint'].includes(i.type),value=linear?linearValue(i).toFixed(3):i.type==='area'?(state.scale?polyArea(i.points)*state.scale*state.scale:0).toFixed(3):i.type==='angle'?angleValue(i.points).toFixed(2):1,unit=linear?'LF':i.type==='area'?'SF':i.type==='angle'?'DEG':'EA';return[n+1,i.group||'General',i.type,i.page,i.type==='multilength'?i.segments.length:'',value,unit,i.railLayout?.notation||'']})];const blob=new Blob([rows.map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.file.replace(/\.[^.]+$/,'')||'plan')+'-takeoff.csv';a.click();URL.revokeObjectURL(a.href);toast('Takeoff exported')};
+const railingAutomation=window.AtlasRailingAutomation;
+const railingModule=tradeRegistry?.get?.('railing');
+const layoutProfiles=railingModule?.layoutProfiles||{};
+const groupLayoutProfileMap={'862 Type 1 Picket':'862','870 Aluminum Two-Rail':'870','880 Steel Two-Rail':'880','822 Bullet Rail':'822'};
+
+function renderLayoutProfileSelect(){
+  const sel=$('#railLayoutProfile');if(!sel)return;
+  const current=sel.value;
+  sel.innerHTML=Object.values(layoutProfiles).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.automation?.enabled?'':' · reference only'}</option>`).join('');
+  if(layoutProfiles[current])sel.value=current;
+  else sel.value=groupLayoutProfileMap[state.group]||'actual-two-rail';
+}
+function syncLayoutProfileFromGroup(force=false){
+  const sel=$('#railLayoutProfile');if(!sel)return;
+  const mapped=groupLayoutProfileMap[state.group];
+  if(mapped&&(force||!sel.value))sel.value=mapped;
+}
+function segmentIntersection(a,b,c,d){
+  const r={x:b.x-a.x,y:b.y-a.y},s={x:d.x-c.x,y:d.y-c.y};
+  const den=r.x*s.y-r.y*s.x;if(Math.abs(den)<1e-9)return null;
+  const q={x:c.x-a.x,y:c.y-a.y};
+  const t=(q.x*s.y-q.y*s.x)/den,u=(q.x*r.y-q.y*r.x)/den;
+  if(t<-1e-8||t>1+1e-8||u<-1e-8||u>1+1e-8)return null;
+  return{x:a.x+t*r.x,y:a.y+t*r.y,t};
+}
+function expansionStationsFor(it){
+  if(it.type!=='length'||!state.scale)return[];
+  const run=itemSegments(it),joints=state.items.filter(x=>x.type==='joint'&&x.page===it.page).flatMap(itemSegments);
+  const stations=[];let cumulative=0;
+  for(const seg of run){
+    const segPx=dist(seg[0],seg[1]);
+    for(const joint of joints){
+      const hit=segmentIntersection(seg[0],seg[1],joint[0],joint[1]);
+      if(hit)stations.push((cumulative+segPx*hit.t)*state.scale*12);
+    }
+    cumulative+=segPx;
+  }
+  return stations.filter((v,i,a)=>a.findIndex(x=>Math.abs(x-v)<.25)===i).sort((a,b)=>a-b);
+}
+function renderRailAutoResult(result){
+  const box=$('#railAutoResult');if(!box)return;
+  const sections=result.sections.map(s=>`<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #2a3442;padding:5px 0"><span>S${s.index}: ${s.bays.map(window.AtlasRailingAutomation.formatInches).join(' • ')}${s.markerAfter?' '+s.markerAfter:''}</span><strong>${window.AtlasRailingAutomation.formatInches(s.overallLength)}″</strong></div>`).join('');
+  box.innerHTML=`<strong>${esc(result.profileName)}</strong><div style="font:800 15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e2ac3e;word-break:break-word;margin:6px 0">${esc(result.notation)}</div><div>${window.AtlasRailingAutomation.formatInches(result.totalInches)}″ OAL · ${result.posts} posts · ${result.splices} splice${result.splices===1?'':'s'} · ${result.expansions} expansion joint${result.expansions===1?'':'s'}</div><div style="color:var(--muted);margin:3px 0 7px">Bay range ${window.AtlasRailingAutomation.formatInches(result.minBay)}″–${window.AtlasRailingAutomation.formatInches(result.maxBay)}″ · ${result.valid?'PASS':'CHECK'}</div>${sections}${result.warnings.length?`<div class="warn" style="margin-top:7px">${result.warnings.map(esc).join('<br>')}</div>`:''}`;
+  $('#copyRailLayout').hidden=false;
+}
+$('#autoLayoutRail').onclick=()=>{
+  const it=state.items.find(i=>i.id===state.selected);
+  if(!it||it.type!=='length')return toast('Select one connected rail length first');
+  if(!state.scale)return toast('Calibrate the plan before auto layout');
+  const profileId=$('#railLayoutProfile').value;
+  try{
+    const result=railingAutomation.solve({totalInches:linearValue(it)*12,profileId,expansionStations:expansionStationsFor(it)});
+    it.railLayout=result;
+    renderRailAutoResult(result);
+    renderOverlay();refreshUI();
+    toast(result.valid?'Railing layout generated':'Layout generated — check warnings');
+  }catch(error){
+    $('#railAutoResult').innerHTML=`<span class="warn">${esc(error.message||'Auto layout failed')}</span>`;
+    $('#copyRailLayout').hidden=true;
+  }
+};
+$('#copyRailLayout').onclick=async()=>{
+  const it=state.items.find(i=>i.id===state.selected);
+  if(!it?.railLayout?.notation)return;
+  try{await navigator.clipboard.writeText(it.railLayout.notation);toast('Bay layout copied')}catch{toast('Could not copy layout')}
+};
+window.atlasForgeSolveRailLayout=input=>railingAutomation?.solve?.(input);
+const railAutoSelfTest=railingAutomation?.selfTest?.();
+if(railAutoSelfTest&&!railAutoSelfTest.pass)console.error('Atlas Forge railing automation self-test failed',railAutoSelfTest);
+
 const defaultRailProfiles=tradeRegistry?.getMaterialProfiles?.('railing')||[{id:'870',name:'870 Aluminum Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'870'},{id:'880',name:'880 Steel Two-Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'880'},{id:'822',name:'822 Bullet Rail',rails:2,stock:240,post:72,overlap:6,gap:.5,bendPost:21,radius:6,layoutProfile:'822'}];
 let railProfiles=[];try{railProfiles=JSON.parse(localStorage.getItem('atlasRailProfiles'))||[]}catch{railProfiles=[]}
 for(const standard of defaultRailProfiles){const n=railProfiles.findIndex(p=>p.id===standard.id);if(n>=0)railProfiles[n]={...standard,...railProfiles[n],layoutProfile:railProfiles[n].layoutProfile||standard.layoutProfile};else railProfiles.push({...standard})}
@@ -89,7 +175,7 @@ $('#saveRailProfile').onclick=()=>{const p={id:$('#railModal').dataset.id||crypt
 function crosses(a,b,c,d){const cc=(p1,p2,p3)=>(p3.y-p1.y)*(p2.x-p1.x)>(p2.y-p1.y)*(p3.x-p1.x);return cc(a,c,d)!==cc(b,c,d)&&cc(a,b,c)!==cc(a,b,d)}
 function layoutRuleSummary(profile){const layout=tradeRegistry?.getLayoutProfile?.('railing',profile.layoutProfile||profile.id);if(!layout)return'';const sections=Object.entries(layout.sections||{}).map(([key,s])=>s?.pattern?`${key}: ${s.pattern}${Number.isFinite(s.overall)?` = ${s.overall}″ OAL`:''}`:'').filter(Boolean);const max=layout.maxBay? `Max bay ${layout.maxBay}″`:'';const ground=layout.minGroundPostsPerSection? `min ${layout.minGroundPostsPerSection} ground posts/section`:'';return `<br><small><strong>Athena layout rules:</strong> ${[max,ground].filter(Boolean).join(' · ')}${sections.length?`<br>${sections.map(esc).join('<br>')}`:''}</small>`}
 $('#calculateRail').onclick=()=>{const it=state.items.find(i=>i.id===state.selected);if(!it||!['length','multilength'].includes(it.type))return toast('Select a length or multi-segment rail run first');if(!state.scale)return toast('Calibrate the plan before calculating railing');const p=railProfiles.find(x=>x.id===$('#railProfile').value)||railProfiles[0],runSegs=it.type==='multilength'?it.segments:itemSegments(it),jointSegs=state.items.filter(x=>x.type==='joint'&&x.page===it.page).flatMap(itemSegments);let crossings=0;for(const a of runSegs)for(const b of jointSegs)if(crosses(a[0],a[1],b[0],b[1]))crossings++;const inches=linearValue(it)*12,corners=it.type==='length'?Math.max(0,it.points.length-2):0,piecesPerRail=Math.max(crossings+1,Math.ceil((inches+crossings*p.overlap)/p.stock)),railPieces=piecesPerRail*p.rails,posts=Math.ceil(inches/p.post)+1,sleeves=crossings*p.rails;$('#railResult').innerHTML=`<strong>${esc(p.name)}</strong><br>${(inches/12).toFixed(2)} LF run · ${railPieces} rail pieces · ${posts} posts<br>${sleeves} expansion sleeves · ${corners} corner bends${crossings?`<br><span class="warn">${crossings} expansion crossing${crossings===1?'':'s'}: solid pieces must break and sleeve.</span>`:''}<br><small>Max post spacing ${p.post}″ · bend-to-post ${p.bendPost}″ max · sleeve gap ${p.gap}″</small>${layoutRuleSummary(p)}`};
-function paintPrintMarkup(c,pageNum){c.save();c.lineWidth=3;c.font='bold 14px Arial';c.lineJoin='round';for(const it of state.items.filter(i=>i.page===pageNum)){const color=colors[it.type]||colors.length;c.strokeStyle=color;c.fillStyle=color;c.setLineDash(it.type==='joint'?[10,7]:[]);if(it.type==='count'){c.beginPath();c.arc(it.points[0].x,it.points[0].y,10,0,Math.PI*2);c.fill();c.fillStyle='#111';c.textAlign='center';c.fillText(it.seq,it.points[0].x,it.points[0].y+5);continue}const groups=it.type==='multilength'?it.segments:[it.points];for(const pts of groups){c.beginPath();pts.forEach((p,n)=>n?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(it.type==='area')c.closePath();c.stroke()}const p=it.type==='multilength'?it.segments[0][1]:it.type==='angle'?it.points[1]:it.points[Math.floor(it.points.length/2)];c.textAlign='left';c.fillText(formatValue(it),p.x+8,p.y-8)}c.setLineDash([]);c.strokeStyle=colors.pen;for(const st of state.strokes.filter(s=>s.page===pageNum)){c.beginPath();st.points.forEach((p,n)=>n?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke()}c.restore()}
+function paintPrintMarkup(c,pageNum){c.save();c.lineWidth=3;c.font='bold 14px Arial';c.lineJoin='round';for(const it of state.items.filter(i=>i.page===pageNum)){const color=colors[it.type]||colors.length;c.strokeStyle=color;c.fillStyle=color;c.setLineDash(it.type==='joint'?[10,7]:[]);if(it.type==='count'){c.beginPath();c.arc(it.points[0].x,it.points[0].y,10,0,Math.PI*2);c.fill();c.fillStyle='#111';c.textAlign='center';c.fillText(it.seq,it.points[0].x,it.points[0].y+5);continue}const groups=it.type==='multilength'?it.segments:[it.points];for(const pts of groups){c.beginPath();pts.forEach((p,n)=>n?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(it.type==='area')c.closePath();c.stroke()}const p=it.type==='multilength'?it.segments[0][1]:it.type==='angle'?it.points[1]:it.points[Math.floor(it.points.length/2)];c.textAlign='left';c.fillText(formatValue(it),p.x+8,p.y-8);if(it.railLayout?.notation)c.fillText(it.railLayout.notation,p.x+8,p.y+10)}c.setLineDash([]);c.strokeStyle=colors.pen;for(const st of state.strokes.filter(s=>s.page===pageNum)){c.beginPath();st.points.forEach((p,n)=>n?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke()}c.restore()}
 async function printablePage(n,markupOnly){const out=document.createElement('canvas'),o=out.getContext('2d');if(state.pdf){const p=await state.pdf.getPage(n),v=p.getViewport({scale:1.5});out.width=Math.round(v.width);out.height=Math.round(v.height);if(markupOnly){o.fillStyle='#fff';o.fillRect(0,0,out.width,out.height)}else await p.render({canvasContext:o,viewport:v}).promise}else{out.width=canvas.width;out.height=canvas.height;if(markupOnly){o.fillStyle='#fff';o.fillRect(0,0,out.width,out.height)}else o.drawImage(canvas,0,0)}paintPrintMarkup(o,n);return out.toDataURL('image/png')}
 $('#printBtn').onclick=()=>{if(sheet.hidden)return toast('Open a plan first');$('#printModal').classList.add('show')};$('#cancelPrint').onclick=()=>$('#printModal').classList.remove('show');
 $('#startPrint').onclick=async()=>{const w=window.open('','atlas-print');if(!w)return toast('Allow pop-ups to create the print view');$('#printModal').classList.remove('show');w.document.write('<title>Atlas Forge Markups</title><p style="font:16px sans-serif">Preparing marked-up plan…</p>');const scope=$('#printScope').value,nums=scope==='all'?Array.from({length:state.pages},(_,i)=>i+1):[state.page],markupOnly=$('#markupOnly').checked,images=[];for(const n of nums)images.push({n,url:await printablePage(n,markupOnly)});w.document.open();w.document.write(`<title>${esc(state.file)} — Atlas Forge Markups</title><style>@page{margin:.35in}body{margin:0;font-family:Arial}section{break-after:page}section:last-child{break-after:auto}img{width:100%;height:auto}header{font-size:12px;margin:0 0 8px;color:#333}</style>${images.map(x=>`<section><header>Atlas Forge · ${esc(state.file)} · Page ${x.n}</header><img src="${x.url}"></section>`).join('')}<script>addEventListener('load',()=>setTimeout(()=>print(),300))<\/script>`);w.document.close()};
@@ -109,7 +195,7 @@ async function renderProjectList(){const wrap=$('#projectList'),projects=await a
 async function showProjects(){const modal=$('#projectsModal');$('#projectName').value=state.projectName||state.file.replace(/\.[^.]+$/,'');$('#projectSaveState').textContent=state.projectId?'Autosave is on for this project.':'';modal.classList.add('show');$('#sidePanel').classList.remove('open');try{await renderProjectList()}catch{toast('Saved projects are unavailable in this browser')}}
 $('#projectsBtn').onclick=showProjects;$('#mobileProjectsBtn').onclick=showProjects;$('#closeProjectsBtn').onclick=()=>$('#projectsModal').classList.remove('show');$('#saveProjectBtn').onclick=()=>saveCurrentProject().catch(()=>toast('Project could not be saved'));
 const projectObserver=new MutationObserver(scheduleProjectSave);for(const node of [$('#measureList'),$('#scaleText'),$('#docBar')])if(node)projectObserver.observe(node,{childList:true,subtree:true,characterData:true});
-renderProfileSelect();applyTradePack(state.tradePack,true);
+renderLayoutProfileSelect();renderProfileSelect();applyTradePack(state.tradePack,true);syncLayoutProfileFromGroup(false);
 $('#panelBtn').onclick=()=>$('#sidePanel').classList.toggle('open');
 const betaAccessModal=$('#betaAccessModal');
 function generateBetaPassword(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$';const bytes=crypto.getRandomValues(new Uint8Array(18));return'Forge-'+Array.from(bytes,n=>chars[n%chars.length]).join('')}

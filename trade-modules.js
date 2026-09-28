@@ -5,11 +5,20 @@
     railing:{
       id:'railing',
       name:'Railing & Fence',
-      version:'1.0.0',
+      version:'1.1.0',
       enabled:true,
       engine:'linear-fabrication-v1',
       groups:['General','862 Type 1 Picket','870 Aluminum Two-Rail','880 Steel Two-Rail','822 Bullet Rail','550-002 Type B Fence','550-003 Gate','Removal'],
       calculators:['rail-layout'],
+      notation:{
+        startHoop:'(',
+        endHoop:')',
+        post:'•',
+        splice:'//',
+        expansion:'||',
+        distanceUnit:'in',
+        description:'Numbers are inches between physical features. • is a post, // is a splice, || is an expansion joint, ( is the start hoop, and ) is the end hoop.'
+      },
       athena:{
         role:'Railing and fence takeoff, shop-layout, fabrication, and material-planning specialist.',
         rules:[
@@ -22,13 +31,17 @@
           'A valid layout must satisfy both the individual bay maximum and the allowed multi-bay shop-section pattern/overall length.',
           'Expansion joints split solid rail pieces and must be carried through the fabrication/cut schedule.',
           'Keep at least two ground-touching posts in each applicable double-rail shop section.',
-          'Treat layout optimization and stock-cut optimization as separate checks: geometry must be legal before material nesting is optimized.'
+          'Treat layout optimization and stock-cut optimization as separate checks: geometry must be legal before material nesting is optimized.',
+          'Railing notation is literal: • means a physical post, // means a physical splice, || means an expansion joint, ( marks the start hoop, and ) marks the end hoop.',
+          'Never reinterpret // as a generic section break and never reinterpret • as a generic separator.',
+          'When a measured run is auto-laid out, write the resulting bay layout as a machine-readable notation string as well as a section schedule.'
         ]
       },
       layoutProfiles:{
         '862':{
           id:'862',aliases:['515-062'],name:'862 / 515-062 Aluminum Picket',
           maxBay:68,picketSpacing:6,
+          automation:{enabled:false,reason:'End-condition automation is not yet confirmed for this picket profile.'},
           sections:{
             start:{pattern:'17•68•67//',overall:152},
             middle:{pattern:'//68•67//',overall:135},
@@ -38,6 +51,7 @@
         '515-052':{
           id:'515-052',aliases:[],name:'515-052 Steel Picket',
           maxBay:67,
+          automation:{enabled:false,reason:'End-condition automation is not yet confirmed for this steel-picket profile.'},
           sections:{
             start:{pattern:'17•67•66//',overall:150},
             middle:{pattern:'//67•66//',overall:133},
@@ -47,6 +61,7 @@
         '870':{
           id:'870',aliases:['515-070'],name:'870 / 515-070 Aluminum Pipe Rail',
           maxBay:72,startHoop:18,endHoop:18,minGroundPostsPerSection:2,
+          automation:{enabled:true,startOffset:18,endOffset:18,wrapStart:true,wrapEnd:true,maxSpliceSpan:240,targetBay:60,rounding:0.0625},
           sections:{
             start:{pattern:'18•65•65•65•45//',overall:258},
             middle:{pattern:'//18•60•60•60•42//',overall:240},
@@ -56,6 +71,7 @@
         '880':{
           id:'880',aliases:['515-080'],name:'880 / 515-080 Steel Pipe Rail',
           maxBay:72,startHoop:18,endHoop:18,minGroundPostsPerSection:2,
+          automation:{enabled:true,startOffset:18,endOffset:18,wrapStart:true,wrapEnd:true,maxSpliceSpan:252,targetBay:63,rounding:0.0625},
           sections:{
             start:{pattern:'18•69•69•69•45//',overall:270},
             middle:{pattern:'//18•63•63•63•45//',overall:252},
@@ -65,12 +81,14 @@
         'actual-two-rail':{
           id:'actual-two-rail',aliases:[],name:'Actual Two-Rail Field Layout',
           maxBay:72,startHoop:18,endHoop:18,minGroundPostsPerSection:2,
-          preferredPair:[68,67],
-          sections:{preferred:{pattern:'68•67',overall:135}}
+          preferredPair:[67,68],
+          automation:{enabled:true,startOffset:18,endOffset:18,wrapStart:true,wrapEnd:true,maxSpliceSpan:240,preferredBaySequence:[67,68],rounding:0.0625},
+          sections:{preferred:{pattern:'67•68',overall:135}}
         },
         '822':{
           id:'822',aliases:[],name:'822 Bullet Rail',
           maxBay:null,
+          automation:{enabled:false,reason:'822 bay/splice automation rules have not been confirmed yet.'},
           sections:{}
         }
       },
@@ -130,6 +148,7 @@
       module:{id:m.id,name:m.name,version:m.version,engine:m.engine},
       role:m.athena?.role||'',
       rules:m.athena?.rules||[],
+      notation:m.notation||{},
       layoutProfiles:m.layoutProfiles||{}
     });
   }
