@@ -53,8 +53,13 @@ window.atlasForgeSubmitFeedback=async({feedbackType,title,details})=>{
 };
 
 window.atlasForgeProvisionBeta=async(password)=>{
-  const {data,error}=await supabase.functions.invoke('forge-beta-admin',{body:{password}});
+  const {data,error}=await supabase.functions.invoke('forge-beta-admin',{body:{action:'provision',password}});
   return error?{error:error.message||'The accounts could not be created.'}:data;
+};
+
+window.atlasForgeResetBetaPasswords=async(password)=>{
+  const {data,error}=await supabase.functions.invoke('forge-beta-admin',{body:{action:'reset_passwords',password}});
+  return error?{error:error.message||'The passwords could not be reset.'}:data;
 };
 
 const {data:{session}}=await supabase.auth.getSession();
@@ -80,12 +85,7 @@ $('#loginForm').addEventListener('submit',async e=>{
 });
 
 $('#showReset').onclick=()=>{
-  $('#loginForm').hidden=true;
-  $('#resetForm').hidden=false;
-  $('#resetEmail').value=$('#loginEmail').value.trim();
-  $('#resetError').textContent='';
-  $('#resetSuccess').textContent='';
-  $('#resetEmail').focus();
+  $('#authError').textContent='Password reset is managed by the Atlas Forge owner during beta. Contact the owner for a new temporary password.';
 };
 
 $('#backToLogin').onclick=()=>showLogin();
