@@ -311,6 +311,40 @@ setMeasurementPanelExpanded(measurementPanelExpanded);
 $('#expandMeasurements').onclick=()=>setMeasurementPanelExpanded(!$('#workspace').classList.contains('panel-expanded'));
 $('#openTakeoffSummary').onclick=()=>{renderLargeTakeoffSummary();$('#takeoffSummaryModal').classList.add('show');$('#sidePanel').classList.remove('open')};
 $('#closeTakeoffSummary').onclick=()=>$('#takeoffSummaryModal').classList.remove('show');
+let athenaAnalysis=null;
+const athenaModal=$('#athenaModal'),athenaProgress=$('#athenaProgress'),athenaResults=$('#athenaResults');
+function athenaPercent(value){return `${Math.round(Math.max(0,Math.min(1,value||0))*100)}%`}
+function athenaEvidenceLine(entry){return `${esc(entry.document)} · Page ${entry.page}${entry.quote?` — “${esc(entry.quote)}”`:''}`}
+function renderAthenaResults(result){
+  const findings=result.findings||[],sheets=result.sheets||[],suggestions=result.suggestedItems||[];
+  athenaResults.innerHTML=`
+    <div class="athena-stats"><div class="athena-stat"><strong>${result.stats.documents}</strong><span>PDF files</span></div><div class="athena-stat"><strong>${result.stats.pages}</strong><span>Pages reviewed</span></div><div class="athena-stat"><strong>${result.stats.textPages}</strong><span>Text pages</span></div><div class="athena-stat"><strong>${findings.length}</strong><span>Findings</span></div></div>
+    ${(result.warnings||[]).map(warning=>`<div class="athena-warning">${esc(warning)}</div>`).join('')}
+    <div class="athena-grid">
+      <section class="athena-panel"><h4>Findings and evidence</h4>${findings.length?findings.map(item=>`<article class="athena-finding"><div class="athena-finding-head"><strong>${esc(item.title)}</strong><span class="athena-confidence">${athenaPercent(item.confidence)} confidence</span></div><p>${esc(item.detail)}</p>${(item.evidence||[]).map(entry=>`<small class="athena-evidence">${athenaEvidenceLine(entry)}</small>`).join('')}</article>`).join(''):'<p>No strong scope matches yet. Review the sheet list and set the takeoff items manually.</p>'}</section>
+      <div><section class="athena-panel"><h4>Suggested takeoff items</h4>${suggestions.length?suggestions.map(item=>`<div class="athena-suggestion"><i style="background:${item.color}"></i><strong>${esc(item.name)}</strong></div>`).join(''):'<p>No automatic suggestions yet.</p>'}</section><section class="athena-panel" style="margin-top:12px"><h4>Sheet map</h4>${sheets.length?sheets.map(sheet=>`<button class="athena-sheet" data-athena-doc="${esc(sheet.document)}" data-athena-page="${sheet.page}" type="button"><span><strong>${esc(sheet.classification)}</strong><small>${esc(sheet.document)} · Page ${sheet.page}</small></span><span class="athena-confidence">${athenaPercent(sheet.confidence)}</span></button>`).join(''):'<p>No PDF pages available.</p>'}</section></div>
+    </div>`;
+  $$('[data-athena-page]').forEach(button=>button.onclick=async()=>{const index=state.docs.findIndex(doc=>doc.file===button.dataset.athenaDoc);if(index>=0){await activateDoc(index);await goToPage(Number(button.dataset.athenaPage));athenaModal.classList.remove('show')}});
+  $('#applyAthenaItems').hidden=!suggestions.length;$('#startAssistedTakeoff').hidden=!suggestions.length;
+}
+function applyAthenaSuggestions({announce=true}={}){
+  const suggestions=athenaAnalysis?.suggestedItems||[];if(!suggestions.length)return false;
+  const next=[],used=new Set;
+  for(const item of [...suggestions,...state.takeoffItems]){const group=String(item.group||item.name||'').trim();if(!group||used.has(group)||next.length>=6)continue;used.add(group);next.push({id:`takeoff-${next.length+1}`,name:group,group,color:item.color||takeoffPalette[next.length]})}
+  state.takeoffItems=normalizeTakeoffItems(next,state.tradePack);state.activeTakeoffId=state.takeoffItems.find(item=>item.group)?.id||'takeoff-1';localStorage.setItem('atlasTakeoffItems',JSON.stringify(state.takeoffItems));applyActiveTakeoff(state.activeTakeoffId);refreshUI();if(announce)toast('Athena suggestions applied');return true;
+}
+async function runAthenaAnalysis(){
+  if(!state.docs.some(doc=>doc.pdf))return toast('Open at least one PDF plan first');
+  if(!window.AtlasAthenaModule)return toast('Athena module could not load');
+  athenaModal.classList.add('show');$('#sidePanel').classList.remove('open');athenaAnalysis=null;athenaResults.innerHTML='';$('#applyAthenaItems').hidden=true;$('#startAssistedTakeoff').hidden=true;$('#athenaBtn').disabled=true;
+  try{
+    athenaProgress.textContent='Athena is reading the open PDF set…';
+    athenaAnalysis=await window.AtlasAthenaModule.analyzePlanSet(state.docs,{palette:takeoffPalette,currentItems:state.takeoffItems,scaleReady:state.docs.some(doc=>doc.scale),tradePack:window.AtlasTradeRegistry?.getAthenaContext(state.tradePack),onProgress:progress=>{athenaProgress.textContent=`Reading ${progress.document} · page ${progress.page} (${progress.done} of ${progress.total})…`}});
+    athenaProgress.textContent=athenaAnalysis.summary;renderAthenaResults(athenaAnalysis);
+  }catch(error){athenaProgress.textContent='Athena could not complete this plan review.';athenaResults.innerHTML=`<div class="athena-warning">${esc(error.message||'Unknown analysis error')}</div>`}finally{$('#athenaBtn').disabled=false}
+}
+$('#athenaBtn').onclick=runAthenaAnalysis;$('#closeAthena').onclick=()=>athenaModal.classList.remove('show');$('#applyAthenaItems').onclick=()=>applyAthenaSuggestions();
+$('#startAssistedTakeoff').onclick=async()=>{applyAthenaSuggestions({announce:false});const first=athenaAnalysis?.findings?.find(item=>item.type==='Detected scope'),entry=first?.evidence?.[0];if(entry){const index=state.docs.findIndex(doc=>doc.file===entry.document);if(index>=0){await activateDoc(index);await goToPage(entry.page)}}const active=activeTakeoff();setTool(/\bgate\b/i.test(active?.name||'')?'count':'multilength');athenaModal.classList.remove('show');toast(`Assisted takeoff ready: ${active?.name||'select an item'}`)};
 const betaAccessModal=$('#betaAccessModal');
 function generateBetaPassword(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$';const bytes=crypto.getRandomValues(new Uint8Array(18));return'Forge-'+Array.from(bytes,n=>chars[n%chars.length]).join('')}
 function openBetaAccess(){if(!window.atlasForgeIsOwner)return;$('#betaPassword').value=generateBetaPassword();$('#betaAccessStatus').textContent='Copy this password before creating the accounts. It will not be emailed.';$('#betaAccessStatus').classList.remove('error');betaAccessModal.classList.add('show');$('#sidePanel').classList.remove('open')}
