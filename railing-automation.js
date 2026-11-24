@@ -53,13 +53,14 @@
   function chooseBayCount(length,profile){
     const auto=profile.automation||{};
     const maxBay=Number(profile.maxBay)||Infinity;
+    const minBay=Math.max(0,Number(profile.minBay)||0);
     const sequence=auto.preferredBaySequence||[];
     const target=Number(auto.targetBay)||average(sequence)||(Number.isFinite(maxBay)?maxBay*.9:length);
     const min=Math.max(1,Math.ceil((length-EPS)/maxBay));
     let best=min,bestScore=Infinity;
     for(let n=min;n<=min+8;n++){
       const bay=length/n;
-      if(bay>maxBay+EPS)continue;
+      if(bay>maxBay+EPS||bay<minBay-EPS)continue;
       let score=Math.abs(bay-target);
       if(sequence.length&&n%sequence.length===0)score-=.05;
       score+=n*.002;
@@ -90,7 +91,7 @@
       diff=roundTo(length-values.reduce((s,v)=>s+v,0),inc);
     }
     const maxBay=Number(profile.maxBay)||Infinity;
-    if(values.some(v=>v>maxBay+EPS))throw new Error('A calculated bay exceeds the profile maximum.');
+    const minBay=Math.max(0,Number(profile.minBay)||0);if(values.some(v=>v>maxBay+EPS))throw new Error('A calculated bay exceeds the profile maximum.');if(minBay&&values.some(v=>v<minBay-EPS))throw new Error('A calculated bay is below the profile minimum.');
     return values;
   }
 
@@ -182,6 +183,7 @@
     const minBay=Math.min(...sections.flatMap(s=>s.bays));
     const valid=Math.abs(parsed.totalInches-totalInches)<=inc+EPS &&
       (!profile.maxBay||maxBay<=profile.maxBay+EPS) &&
+      (!profile.minBay||minBay>=profile.minBay-EPS) &&
       sections.every(s=>!Number.isFinite(maxSpan)||s.interiorLength<=maxSpan+EPS);
 
     if(!valid)warnings.push('Layout did not pass one or more profile checks.');
