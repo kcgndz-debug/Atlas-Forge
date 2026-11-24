@@ -40,8 +40,8 @@
       layoutProfiles:{
         '862':{
           id:'862',aliases:['515-062'],name:'862 / 515-062 Aluminum Picket',
-          maxBay:68,picketSpacing:6,
-          automation:{enabled:false,reason:'End-condition automation is not yet confirmed for this picket profile.'},
+          maxBay:68,picketSpacing:6,preferredPair:[68,67],
+          automation:{enabled:true,startOffset:0,endOffset:0,wrapStart:false,wrapEnd:false,maxSpliceSpan:202,preferredBaySequence:[68,67],rounding:0.0625,beta:true},
           sections:{
             start:{pattern:'17•68•67//',overall:152},
             middle:{pattern:'//68•67//',overall:135},
